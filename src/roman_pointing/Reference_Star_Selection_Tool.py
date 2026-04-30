@@ -397,20 +397,20 @@ def load_catalog(
     resolved_cache = Path(cache_path) if cache_path else DEFAULT_CACHE_PATH
 
     if not force_refresh and cache_is_fresh(resolved_cache, max_cache_age_hours):
-        print(f"Loading CORGI reference star catalog from cache ({resolved_cache.name})...")
+        print(f"Loading CORGIDB reference star catalog from cache ({resolved_cache.name})...")
         df = pd.read_csv(resolved_cache, low_memory=False)
-        print(f"  CORGI catalog loaded: {len(df)} reference star(s).")
+        print(f"  CORGIDB catalog loaded: {len(df)} reference star(s).")
         return df
 
     fetch_error = None
-    print(f"Fetching CORGI reference star catalog from {url} ...")
+    print(f"Fetching CORGIDB reference star catalog from {url} ...")
     try:
         df = fetch_catalog(url)
         df = coerce_catalog(df)
         resolved_cache.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(resolved_cache, index=False)
-        print(f"  CORGI catalog cached → {resolved_cache}")
-        print(f"  CORGI catalog loaded: {len(df)} reference star(s).")
+        print(f"  CORGIDB catalog cached → {resolved_cache}")
+        print(f"  CORGIDB catalog loaded: {len(df)} reference star(s).")
         return df
     except Exception as exc:
         fetch_error = exc
@@ -423,7 +423,7 @@ def load_catalog(
             stacklevel=2,
         )
         df = pd.read_csv(resolved_cache, low_memory=False)
-        print(f"  CORGI catalog loaded from stale cache: {len(df)} reference star(s).")
+        print(f"  CORGIDB catalog loaded from stale cache: {len(df)} reference star(s).")
         return df
 
     raise RuntimeError(
@@ -521,7 +521,6 @@ def build_skycoord(star):
         kwargs["radial_velocity"] = get_field("st_radv") * u.km / u.s
 
     return c.SkyCoord(**kwargs).transform_to(c.BarycentricMeanEcliptic)
-
 
 
 def get_observable_windows(times, keepout_array):
@@ -731,14 +730,13 @@ def select_ref_star(
     candidates = candidates.dropna(subset=[mag_col])
     candidates["grade_rank"] = candidates["grade"].map(grade_rank_map).fillna(99).astype(int)
 
-    print(f"  Grade filter {active_grades}: {len(candidates)} candidate(s) remaining (sourced from CORGI database).")
+    print(f"  Grade filter {active_grades}: {len(candidates)} candidate(s) remaining (sourced from CORGIDB database).")
 
-    print(f"Querying SIMBAD for '{sci_name}'...")
+    print(f"Looking up coordinates for '{sci_name}' via CORGIDB StarAliases (SIMBAD fallback if not found)...")
     coords = get_target_coords([sci_name])
     if sci_name not in coords:
-        return {"error": f"Science target '{sci_name}' not found in SIMBAD."}
+        return {"error": f"Science target '{sci_name}' not found in CORGIDB or SIMBAD."}
     sci_coord = coords[sci_name]
-    print(f"  Found '{sci_name}'.")
 
     print(f"Looking up {band_label}-band magnitude for '{sci_name}'...")
     sci_mag = get_science_mag(sci_name, band)
@@ -789,7 +787,7 @@ def select_ref_star(
     )
     sci_pitch_vals = sci_pitch_full.to(u.degree).value
 
-    print("Building reference star coordinates from CORGI catalog...")
+    print("Building reference star coordinates from CORGIDB catalog...")
     ref_coords = {}
     for _, ref in candidates.iterrows():
         name = ref["main_id"]
