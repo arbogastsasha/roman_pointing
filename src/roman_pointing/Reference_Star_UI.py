@@ -1,6 +1,7 @@
 import base64
 from io import BytesIO, StringIO
 from datetime import datetime
+from unittest import result
 
 import matplotlib
 import matplotlib.dates as mdates
@@ -256,7 +257,7 @@ def plot_pitch_diff(ts, sci_pitch, result, ref_coords_map, max_pitch_diff=MAX_PI
     return fig_to_html(fig)
 
 
-def availability_html(result):
+def availability_html(result): 
     """Build an HTML availability calendar grid for all observable windows.
 
     Args:
@@ -265,62 +266,165 @@ def availability_html(result):
     Returns:
         str: HTML table showing which reference stars are observable per date.
     """
-    wins = result.get("observable_windows", [])
-    if not wins:
-        return "<p style='color:#c62828'>No observable windows found.</p>"
+    wins = result.get("observable_windows", [])                                     # Get the list of observable windows
+    if not wins:                                                                    # If no observable windows are found
+        return "<p style='color:#c62828'>No observable windows found.</p>"          # Return a message indicating no windows are available
 
-    sections = []
-    for i, win in enumerate(wins):
-        valid_refs = win.get("valid_refs", [])
-        if not valid_refs:
-            sections.append(
-                f"<h4 style='color:#c62828;margin:12px 0 4px'>Window {i + 1}: "
-                f"{win['start']} to {win['end']} — No valid reference stars</h4>"
+    sections = []                                                                   # Initialize the list to store HTML sections
+    for i, win in enumerate(wins):                                                  # Iterate over each observable window
+        valid_refs = win.get("valid_refs", [])                                      # Get the list of valid reference stars for this window
+        if not valid_refs:                                                          # If no valid reference stars are found for this window
+            sections.append(                                                        # Append a message indicating no valid reference stars are available for this window
+                f"<h4 style='color:#c62828;margin:12px 0 4px'>Window {i + 1}: "     # Create a header for the window
+                f"{win['start']} to {win['end']} — No valid reference stars</h4>"   # Add a description indicating no valid reference stars are available
             )
-            continue
+            continue                                                                # Skip to the next window
 
-        sections.append(
-            f"<h4 style='margin:16px 0 6px 0;color:#1565c0'>"
-            f"Window {i + 1}: {win['start']} to {win['end']} ({win['duration_days']:.1f} days)</h4>"
+        sections.append(                                                                                # Append the header for the window
+            f"<h4 style='margin:16px 0 6px 0;color:#1565c0'>"                                           # Set the style for the header
+            f"Window {i + 1}: {win['start']} to {win['end']} ({win['duration_days']:.1f} days)</h4>"    # Add a description of the window
         )
 
-        star_names = [r["reference_star"] for r in valid_refs]
-        grades = {r["reference_star"]: r.get("grade", "?") for r in valid_refs}
-        n_days_map = {r["reference_star"]: r.get("n_valid_days", 0) for r in valid_refs}
-        all_dates = sorted({d for r in valid_refs for d in r.get("valid_dates", [])})
-        avail_lookup = {r["reference_star"]: set(r.get("valid_dates", [])) for r in valid_refs}
+        star_names = [r["reference_star"] for r in valid_refs]                                          # Extract the names of the valid reference stars
+        grades = {r["reference_star"]: r.get("grade", "?") for r in valid_refs}                         # Create a mapping of reference star names to their grades
+        n_days_map = {r["reference_star"]: r.get("n_valid_days", 0) for r in valid_refs}                # Create a mapping of reference star names to the number of valid days
+        all_dates = sorted({d for r in valid_refs for d in r.get("valid_dates", [])})                   # Get a sorted list of all valid dates
+        avail_lookup = {r["reference_star"]: set(r.get("valid_dates", [])) for r in valid_refs}         # Create a mapping of reference star names to their valid dates
 
-        th_stars = "".join(
-            "<th style='padding:5px 8px;border:1px solid #ddd;white-space:nowrap;"
-            "background:#1565c0;color:white;font-size:11px'>"
-            f"{name}<br><span style='font-weight:normal;font-size:10px'>"
-            f"Grade {grades[name]} &middot; {n_days_map[name]}d</span></th>"
-            for name in star_names
+        th_stars = "".join(                                                             # Join the header cells for each reference star
+            "<th style='padding:5px 8px;border:1px solid #ddd;white-space:nowrap;"      # Set the style for the header cell
+            "background:#1565c0;color:white;font-size:11px'>"                           # Set the background color, text color, and font size for the header cell
+            f"{name}<br><span style='font-weight:normal;font-size:10px'>"               # Add the name of the reference star
+            f"Grade {grades[name]} &middot; {n_days_map[name]}d</span></th>"            # Add the grade and number of valid days for the reference star
+            for name in star_names                                                      # Iterate over each reference star name
         )
-        header_row = (
-            "<tr><th style='padding:5px 8px;border:1px solid #ddd;background:#1565c0;color:white'>Date</th>"
-            f"{th_stars}</tr>"
+        header_row = (                                                                                              # Create the header row for the table
+            "<tr><th style='padding:5px 8px;border:1px solid #ddd;background:#1565c0;color:white'>Date</th>"        # Add the header cell for the date column
+            f"{th_stars}</tr>"                                                                                      # Add the header cells for each reference star
         )
 
-        body_rows = ""
-        for date in all_dates:
-            cells = "".join(
+        body_rows = ""                                                                                                      # Initialize the body rows
+        for date in all_dates:                                                                                              # Iterate over each date
+            cells = "".join(                                                                                                # Join the cells for each reference star
                 (
-                    "<td style='padding:4px 8px;border:1px solid #ddd;text-align:center;background:#e8f5e9'>&#10003;</td>"
-                    if date in avail_lookup.get(name, set()) else
-                    "<td style='padding:4px 8px;border:1px solid #ddd;text-align:center;color:#ccc'>&mdash;</td>"
+                    "<td style='padding:4px 8px;border:1px solid #ddd;text-align:center;background:#e8f5e9'>&#10003;</td>"  # Add a checkmark if the date is available for the reference star
+                    if date in avail_lookup.get(name, set()) else                                                           # Otherwise, add a dash
+                    "<td style='padding:4px 8px;border:1px solid #ddd;text-align:center;color:#ccc'>&mdash;</td>"           # Add a dash if the date is not available for the reference star
                 )
-                for name in star_names
+                for name in star_names                                                                                      # Iterate over each reference star name
             )
-            body_rows += (
-                f"<tr><td style='padding:4px 8px;border:1px solid #ddd;"
-                f"font-family:monospace;white-space:nowrap'>{date}</td>{cells}</tr>"
+            body_rows += (                                                                              # Add the row for the current date              
+                f"<tr><td style='padding:4px 8px;border:1px solid #ddd;"                                # Set the style for the date cell
+                f"font-family:monospace;white-space:nowrap'>{date}</td>{cells}</tr>"                    # Add the date and the cells for each reference star
             )
 
-        sections.append(
-            "<div style='overflow-x:auto;margin-bottom:20px'>"
-            "<table style='border-collapse:collapse;font-size:12px'>"
-            f"<thead>{header_row}</thead><tbody>{body_rows}</tbody></table></div>"
+        sections.append(                                                            # Add the table to the sections
+            "<div style='overflow-x:auto;margin-bottom:20px'>"                      # Create a div to contain the table with horizontal scrolling
+            "<table style='border-collapse:collapse;font-size:12px'>"               # Set the style for the table
+            f"<thead>{header_row}</thead><tbody>{body_rows}</tbody></table></div>"  # Add the header and body rows to the table
+        )
+
+    return "".join(sections)                                                        # Return the joined sections as a single HTML string
+
+
+def best_ref_per_day_html(result):                                              # Build a table showing the best reference star for each date
+    """
+    Build a daily table showing the highest-ranked reference star
+    available on each date.
+
+    Columns:
+        Date
+        Best Reference Star
+        Grade
+        Delta Pitch (deg)
+    """
+
+    wins = result.get("observable_windows", [])                                 # Get the list of observable windows from the result
+
+    if not wins:                                                                # If no observable windows are found, return an error message
+        return "<p style='color:#c62828'>No observable windows found.</p>"      # Return the error message
+
+    sections = []                                                               # Initialize the list to store the HTML sections
+
+    for i, win in enumerate(wins):                                              # Iterate over each observable window
+
+        valid_refs = win.get("valid_refs", [])                                  # Get the list of valid reference stars for the current window
+        pitch_df = win.get("pitch_df")                                          # Get the pitch data for the current window
+
+
+
+        if not valid_refs or pitch_df is None or pitch_df.empty:                # If no valid reference stars or pitch data is available, skip this window
+            continue                                                            # Skip this window
+
+        sections.append(                                                        # Add the window header to the sections
+            f"<h4 style='margin:16px 0 6px 0;color:#1565c0'>"                   # Set the style for the window header
+            f"Window {i + 1}: {win['start']} to {win['end']} "                  # Add the window information
+            f"({win['duration_days']:.1f} days)"                                # Add the duration of the window
+            f"</h4>"                                                            # Close the window header
+        )
+
+        max_pitch = result.get("max_pitch_diff", MAX_PITCH_DIFF)                # Get the maximum allowed pitch difference from the result, or use the default value
+        rows = ""                                                               # Initialize the rows for the table
+
+        for date, pitch_row in pitch_df.iterrows():                             # Iterate over each date and its corresponding pitch row
+
+            best_star  = None                                                   # Initialize the best star for the current date
+            best_grade = None                                                   # Initialize the best grade for the current date
+            best_pitch = None                                                   # Initialize the best pitch for the current date
+
+            for ref in valid_refs:                                              # Iterate over each valid reference star
+
+                star_name = ref["reference_star"]                               # Get the name of the current reference star
+
+                if star_name not in pitch_row.index:                            # If the star is not in the pitch row, skip it
+                    continue
+
+                pitch_val = pitch_row[star_name]                                # Get the pitch value for the current reference star
+
+                if np.isnan(pitch_val):                                         # If the pitch value is NaN, skip it
+                    continue
+
+                if np.abs(pitch_val) > max_pitch:                               # If the pitch value exceeds the maximum allowed, skip it
+                    continue
+
+                best_star = star_name                                           # Set the best star for the current date
+                best_grade = ref.get("grade", "?")                              # Get the grade for the current reference star
+                best_pitch = pitch_val                                          # Set the best pitch for the current date
+                break
+
+            if best_star is None:                                               # If no valid reference star was found, skip this date
+                continue
+
+            grade_html = html_badge(best_grade, grade_color(best_grade))                # Add badge colors to grades
+            rows += (                                                                   # Add the current date's best reference star to the table
+                "<tr>"                                                                  # Start a new table row
+                f"<td style='padding:4px 8px;border:1px solid #ddd;"                    # Apply styling to the date cell
+                f"font-family:monospace;white-space:nowrap'>{date}</td>"                # Display the date
+                f"<td style='padding:4px 8px;border:1px solid #ddd'>{best_star}</td>"   # Display the best reference star
+                f"<td style='padding:4px 8px;border:1px solid #ddd;"                    # Apply styling to the grade cell
+                f"text-align:center'>{grade_html}</td>"                                 # Display the best grade badge
+                f"<td style='padding:4px 8px;border:1px solid #ddd;"                    # Apply styling to the pitch cell
+                f"text-align:right'>{best_pitch:.3f}&deg;</td>"                         # Display the best pitch
+                "</tr>"                                                                 # Close the table row
+            )
+
+        sections.append(                                                                # Add the table to the sections list
+            "<div style='overflow-x:auto;margin-bottom:20px'>"                          # Create a scrollable container for the table
+            "<table style='border-collapse:collapse;font-size:12px'>"                   # Apply styling to the table
+            "<thead>"                                                                   # Start the table header
+            "<tr>"                                                                      # Start a new table row for the header  
+            "<th style='padding:5px 8px;border:1px solid #ddd;"                         # Apply styling to the date header
+            "background:#1565c0;color:white'>Date</th>"                                 # Display the date header
+            "<th style='padding:5px 8px;border:1px solid #ddd;"                         # Apply styling to the reference star header
+            "background:#1565c0;color:white'>Best Reference Star</th>"                  # Display the best reference star header
+            "<th style='padding:5px 8px;border:1px solid #ddd;"                         # Apply styling to the grade header
+            "background:#1565c0;color:white'>Grade</th>"                                # Display the grade header
+            "<th style='padding:5px 8px;border:1px solid #ddd;"                         # Apply styling to the pitch header
+            "background:#1565c0;color:white'>Δ Pitch (deg)</th>"                        # Display the pitch header
+            "</tr>"                                                                     # Close the header row
+            "</thead>"                                                                  # Close the table header
+            f"<tbody>{rows}</tbody>"                                                    # Add the table rows to the body
+            "</table></div>"                                                            # Close the table and container
         )
 
     return "".join(sections)
@@ -689,7 +793,7 @@ def build_csv_download_widgets(result, sci_name, band, contrast):
     )
 
 
-class ReferenceStarPickerUI:
+class ReferenceStarPickerUI: 
     """Jupyter ipywidgets UI for the Roman Reference Star Picker.
 
     Instantiate and call display() to render the full interface in a notebook.
@@ -832,17 +936,18 @@ class ReferenceStarPickerUI:
         self.out_pitchdiff = widgets.Output()
         self.out_keepout   = widgets.Output()
         self.out_avail     = widgets.Output()
+        self.out_bestref   = widgets.Output()
         self.out_downloads = widgets.Output()
 
         self.tabs = widgets.Tab(children=[
             self.out_results, self.out_solar, self.out_pitch,
             self.out_pitchdiff, self.out_keepout, self.out_avail,
-            self.out_downloads,
+            self.out_bestref, self.out_downloads,
         ])
         for idx, title in enumerate([
             "Results", "Solar Angle", "Pitch Angle",
             "Pitch Difference", "Keepout Map", "Availability Calendar",
-            "⬇ Downloads",
+            "Best Reference Stars", "⬇ Downloads",
         ]):
             self.tabs.set_title(idx, title)
 
@@ -1116,7 +1221,7 @@ class ReferenceStarPickerUI:
         self.w_run.disabled = True
         for out in [
             self.out_results, self.out_solar, self.out_pitch,
-            self.out_pitchdiff, self.out_keepout, self.out_avail,
+            self.out_pitchdiff, self.out_keepout, self.out_avail, self.out_bestref,
             self.out_downloads,
         ]:
             out.clear_output()
@@ -1222,6 +1327,12 @@ class ReferenceStarPickerUI:
                 display(HTML(html_panel(
                     availability_html(result),
                     title="Reference Star Availability — Valid Observation Dates per Window",
+                )))
+            
+            with self.out_bestref:
+                display(HTML(html_panel(
+                    best_ref_per_day_html(result),
+                    title="Best Reference Star by Date",
                 )))
 
             with self.out_downloads:
